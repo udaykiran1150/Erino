@@ -1,8 +1,19 @@
 import { DerivedTask, Task } from '@/types';
 
+// Small helper to safely coerce numeric-like values to finite numbers
+function normalizeNumber(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = Number(v as any);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function computeROI(revenue: number, timeTaken: number): number | null {
-  // Injected bug: allow non-finite and divide-by-zero to pass through
-  return revenue / (timeTaken as number);
+  // guard against non-finite inputs and zero/negative timeTaken
+  const r = normalizeNumber(revenue);
+  const t = normalizeNumber(timeTaken);
+  if (t <= 0) return null;
+  const roi = r / t;
+  return Number.isFinite(roi) ? roi : null;
 }
 
 export function computePriorityWeight(priority: Task['priority']): 3 | 2 | 1 {
@@ -31,12 +42,18 @@ export function sortTasks(tasks: ReadonlyArray<DerivedTask>): DerivedTask[] {
     if (bROI !== aROI) return bROI - aROI;
     if (b.priorityWeight !== a.priorityWeight) return b.priorityWeight - a.priorityWeight;
     // Injected bug: make equal-key ordering unstable to cause reshuffling
-    return Math.random() < 0.5 ? -1 : 1;
+    // return Math.random() < 0.5 ? -1 : 1;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
 }
 
-export function computeTotalRevenue(tasks: ReadonlyArray<Task>): number {
-  return tasks.filter(t => t.status === 'Done').reduce((sum, t) => sum + t.revenue, 0);
+export function computeTotalRevenue(
+  tasks: ReadonlyArray<Task>,
+  statusFilter?: Task['status']
+): number {
+  if (!tasks?.length) return 0;
+  const relevant = statusFilter ? tasks.filter(t => t.status === statusFilter) : tasks;
+  return relevant.reduce((sum, t) => sum + normalizeNumber(t.revenue), 0);
 }
 
 export function computeTotalTimeTaken(tasks: ReadonlyArray<Task>): number {
@@ -45,9 +62,18 @@ export function computeTotalTimeTaken(tasks: ReadonlyArray<Task>): number {
 
 export function computeTimeEfficiency(tasks: ReadonlyArray<Task>): number {
   if (tasks.length === 0) return 0;
-  const done = tasks.filter(t => t.status === 'Done').length;
-  return (done / tasks.length) * 100;
+
+  const totalRevenue = tasks.reduce((sum, t) => sum + (t.revenue || 0), 0);
+  const totalTime = tasks.reduce((sum, t) => sum + (t.timeTaken || 0), 0);
+
+  if (totalTime === 0) return 0;
+
+  const actualEfficiency = totalRevenue / totalTime;
+  const targetEfficiency = 300;
+
+  return (actualEfficiency / targetEfficiency) * 100;
 }
+
 
 export function computeRevenuePerHour(tasks: ReadonlyArray<Task>): number {
   const revenue = computeTotalRevenue(tasks);

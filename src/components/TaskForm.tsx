@@ -68,7 +68,7 @@ export default function TaskForm({ open, onClose, onSubmit, existingTitles, init
     !!status;
 
   const handleSubmit = () => {
-    const safeTime = typeof timeTaken === 'number' && timeTaken > 0 ? timeTaken : 1; // auto-correct
+    const safeTime = typeof timeTaken === 'number' && timeTaken > 0 ? timeTaken : 1; 
     const payload: Omit<Task, 'id'> & { id?: string } = {
       title: title.trim(),
       revenue: typeof revenue === 'number' ? revenue : 0,

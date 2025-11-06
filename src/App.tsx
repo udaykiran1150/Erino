@@ -16,11 +16,15 @@ import {
   computeRevenuePerHour,
   computeTimeEfficiency,
   computeTotalRevenue,
+  
 } from '@/utils/logic';
 
 function AppContent() {
-  const { loading, error, metrics, derivedSorted, addTask, updateTask, deleteTask, undoDelete, lastDeleted } = useTasksContext();
-  const handleCloseUndo = () => {};
+const { loading, error, metrics, derivedSorted, addTask, updateTask, deleteTask, undoDelete, lastDeleted, clearLastDeleted } = useTasksContext();
+ const handleCloseUndo = useCallback(() => {
+  clearLastDeleted(); 
+}, [clearLastDeleted]);
+
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState<string>('All');
   const [fPriority, setFPriority] = useState<string>('All');
@@ -35,7 +39,9 @@ function AppContent() {
 
   const filtered = useMemo(() => {
     return derivedSorted.filter(t => {
-      if (q && !t.title.toLowerCase().includes(q.toLowerCase())) return false;
+      // if (q && !t.title.toLowerCase().includes(q.toLowerCase())) return false;
+      if (q && t.title && !t.title.toLowerCase().includes(q.toLowerCase())) return false;
+      if (q && !t.title) return false;
       if (fStatus !== 'All' && t.status !== fStatus) return false;
       if (fPriority !== 'All' && t.priority !== fPriority) return false;
       return true;
@@ -54,10 +60,12 @@ function AppContent() {
     deleteTask(id);
     setActivity(prev => [createActivity('delete', `Deleted task ${id}`), ...prev].slice(0, 50));
   }, [deleteTask, createActivity]);
+
   const handleUndo = useCallback(() => {
-    undoDelete();
-    setActivity(prev => [createActivity('undo', 'Undo delete'), ...prev].slice(0, 50));
-  }, [undoDelete, createActivity]);
+  undoDelete();
+  clearLastDeleted(); // ✅ also clear after undo
+  setActivity(prev => [createActivity('undo', 'Undo delete'), ...prev].slice(0, 50));
+}, [undoDelete, createActivity, clearLastDeleted]);
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -142,5 +150,3 @@ export default function App() {
     </UserProvider>
   );
 }
-
-
